@@ -95,6 +95,27 @@ namespace Freenect {
 		void updateState() {
 			if (freenect_update_tilt_state(m_dev) < 0) throw std::runtime_error("Cannot update device state");
 		}
+		//add new register settings
+		void setAutoExposure (int enabled) {
+		    if(freenect_set_auto_exposure (m_dev,enabled)<0) throw std::runtime_error("Cannot set auto exposure");
+		}
+		void getAutoExposure () {
+		    if(freenect_get_auto_exposure (m_dev)<0) throw std::runtime_error("Cannot get auto exposure");
+		}
+		void setAutoWhiteBalance (int enabled) {
+		    if(freenect_set_auto_white_balance (m_dev,enabled)<0) throw std::runtime_error("Cannot set white balance");
+		}
+		void getAutoWhiteBalance () {
+		    if(freenect_get_auto_white_balance (m_dev)<0) throw std::runtime_error("Cannot get white balance");
+		}
+		void setColorCorrection (int enabled) {
+		    if(freenect_set_color_correction (m_dev,enabled)<0) throw std::runtime_error("Cannot set color correction");
+		}
+		void getColorCorrection () {
+		    if(freenect_get_color_correction (m_dev)<0) throw std::runtime_error("Cannot get color correction");
+		}
+		//add end
+        	
 		FreenectTiltState getState() const {
 			return FreenectTiltState(freenect_get_tilt_state(m_dev));
 		}

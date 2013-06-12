@@ -688,8 +688,7 @@ static int send_cmd(freenect_device *dev, uint16_t cmd, void *cmdbuf, unsigned i
 
 	do {
 		actual_len = fnusb_control(&dev->usb_cam, 0xc0, 0, 0, 0, ibuf, 0x200);
-		FN_FLOOD("actual_len: %d\n", actual_len);
-	} while ((actual_len == 0) || (actual_len == 0x200));
+	} while (actual_len == 0);
 	FN_SPEW("Control reply: %d\n", res);
 	if (actual_len < (int)sizeof(*rhdr)) {
 		FN_ERROR("send_cmd: Input control transfer failed (%d)\n", res);
@@ -1350,6 +1349,9 @@ FN_INTERNAL int freenect_camera_init(freenect_device *dev)
 	}
 	res = freenect_set_video_mode(dev, freenect_find_video_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_VIDEO_RGB));
 	res = freenect_set_depth_mode(dev, freenect_find_depth_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_DEPTH_11BIT));
+	//added by zhy
+	res = freenect_set_auto_exposure(dev,0);
+	//add end
 	res = freenect_fetch_reg_const_shift(dev);
 	if (res < 0) {
 		FN_ERROR("freenect_camera_init(): Failed to fetch const shift for device\n");
@@ -1379,3 +1381,93 @@ FN_INTERNAL int freenect_camera_teardown(freenect_device *dev)
 	freenect_destroy_registration(&(dev->registration));
 	return 0;
 }
+
+
+static uint16_t write_cmos_register(freenect_device *dev, uint16_t reg, uint16_t value)
+{
+	 freenect_context *ctx = dev->parent;
+	 uint16_t replybuf[0x200];
+	 uint16_t cmdbuf[3];
+	 cmdbuf[0] = 1;
+	 cmdbuf[1] = reg | 0x8000;
+     cmdbuf[2] = value;
+     int res = send_cmd(dev, 0x95, cmdbuf, 6, replybuf, 6);
+     if (res < 0)
+     {
+         FN_ERROR("read_cmos_register: send_cmd returned %d\n", res);
+         return -1;
+     }
+     return 0;
+ }
+ 
+ static uint16_t read_cmos_register(freenect_device *dev, uint16_t reg)
+ {
+     freenect_context *ctx = dev->parent;
+     uint16_t replybuf[0x200];
+     uint16_t cmdbuf[3];
+     cmdbuf[0] = 1;
+     cmdbuf[1] = reg & 0x7fff;
+     cmdbuf[2] = 0;
+     int res = send_cmd(dev, 0x95, cmdbuf, 6, replybuf, 6);
+    if (res < 0)
+     {
+        FN_ERROR("read_cmos_register: send_cmd returned %d\n", res);
+      }
+      return replybuf[2];
+}
+
+
+int
+freenect_set_auto_exposure (freenect_device * dev, int enabled)
+{
+	uint16_t r = read_cmos_register(dev, 0x0106);
+	if (enabled)
+		r |= 1 << 14;     // set bit 14 to enable auto exposure
+    else
+       r &= ~(1 << 14);  // clear bit 14 to disable auto exposure
+   write_cmos_register(dev, 0x0106, r);
+   return (0);
+ }
+ 
+ int
+ freenect_set_color_correction (freenect_device * dev, int enabled)
+ {
+   uint16_t r = read_cmos_register(dev, 0x0106);
+   if (enabled)
+     r &= ~(1 << 4);   // clear bit 4 for normal color processing
+   else
+     r |= 1 << 4;      // set bit 4 to output "raw" color bypassing color correction
+   write_cmos_register(dev, 0x0106, r);
+   return (0);
+ }
+ 
+ int
+ freenect_set_auto_white_balance (freenect_device * dev, int enabled)
+ {
+   uint16_t r = read_cmos_register(dev, 0x0106);
+   if (enabled)
+     r |= 1 << 1;      // set bit 1 to enable auto white balance
+   else
+     r &= ~(1 << 1);   // clear bit 1 to disable auto white balance
+   write_cmos_register(dev, 0x0106, r);
+   return (0);
+ }
+ 
+ int
+ freenect_get_auto_exposure (freenect_device * dev)
+ {
+   return read_cmos_register(dev, 0x0106) & (1 << 14);
+ }
+ 
+ int
+ freenect_get_color_correction (freenect_device * dev)
+ {
+   return read_cmos_register(dev, 0x0106) & (1 << 4);
+ }
+ 
+ int
+ freenect_get_auto_white_balance (freenect_device * dev)
+ {
+   return read_cmos_register(dev, 0x0106) & (1 << 1);
+}
+
